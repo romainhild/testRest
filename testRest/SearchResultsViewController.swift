@@ -13,6 +13,7 @@ class SearchResultsViewController: UIViewController, UITableViewDataSource, UITa
     @IBOutlet weak var appsTableView: UITableView!
     
     var tableData = []
+    var imageCache = [String : UIImage]()
     var api = APIController()
     
     let kCellIdentifier = "SearchResultCell"
@@ -36,16 +37,44 @@ class SearchResultsViewController: UIViewController, UITableViewDataSource, UITa
         let cell = tableView.dequeueReusableCellWithIdentifier(kCellIdentifier) as UITableViewCell
         
         let rowData = tableData[indexPath.row] as NSDictionary
-        cell.textLabel.text = rowData["trackName"] as NSString
+        
+        let cellText: String? = rowData["trackName"] as? NSString
+        cell.textLabel.text = cellText
+        cell.imageView.image = UIImage(named: "Blank52")
         
         let urlString = rowData["artworkUrl60"] as NSString
-        let imgURL = NSURL(string: urlString)
         
-        let imgData: NSData = NSData(contentsOfURL: imgURL!)!
-        cell.imageView.image = UIImage(data: imgData)
+        var image = imageCache[urlString]
         
-        cell.detailTextLabel?.text = rowData["formattedPrice"] as NSString
-        
+        if image == nil {
+            let imgURL = NSURL(string: urlString)
+
+            let request = NSURLRequest(URL: imgURL!)
+            NSURLConnection.sendAsynchronousRequest(request, queue: NSOperationQueue.mainQueue(), completionHandler: {(response: NSURLResponse!, data: NSData!, error: NSError!) -> Void in
+                
+                if error == nil {
+                    image = UIImage(data: data)
+                    
+                    self.imageCache[urlString] = image
+                    dispatch_async(dispatch_get_main_queue(), {
+                        if let cellToUpdate = tableView.cellForRowAtIndexPath(indexPath) {
+                            cellToUpdate.imageView.image = image
+                        }
+                    })
+                }
+                else {
+                    println("Error: \(error.localizedDescription)")
+                }
+            })
+        }
+        else {
+            dispatch_async(dispatch_get_main_queue(), {
+                if let cellToUpdate = tableView.cellForRowAtIndexPath(indexPath) {
+                    cellToUpdate.imageView.image = image
+                }
+            })
+        }
+                
         return cell
     }
     
